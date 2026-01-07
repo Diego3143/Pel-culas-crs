@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import Filter from 'bad-words';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -26,15 +25,6 @@ interface CommentModalProps {
   contentId: string;
   user: UserProfile;
 }
-
-const badWordsEs = [
-  'puto', 'puta', 'cabron', 'cabrona', 'pendejo', 'pendeja', 'mierda', 'joder',
-  'coño', 'gilipollas', 'maricon', 'mamon', 'chinga', 'chingar', 'verga',
-  'culero', 'culera', 'pito', 'chocha', 'mamahuevo', 'hijueputa' 
-];
-const filter = new Filter();
-filter.addWords(...badWordsEs);
-
 
 export function CommentModal({ isOpen, onClose, contentId, user }: CommentModalProps) {
   const { toast } = useToast();
@@ -80,8 +70,7 @@ export function CommentModal({ isOpen, onClose, contentId, user }: CommentModalP
 
   async function onTextSubmit(values: z.infer<typeof commentSchema>) {
     if (!values.text) return;
-    const cleanedText = filter.clean(values.text);
-    sendComment('text', cleanedText);
+    sendComment('text', values.text);
   }
 
   const onStickerSelect = (stickerValue: string, stickerType: 'image' | 'emoji') => {
