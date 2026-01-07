@@ -3,9 +3,12 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Filter } from "bad-words";
+const BAD_WORDS = ["puta", "mierda", "pendejo", "fuck", "shit"];
 
-const filter = new Filter();
+function containsBadWords(text: string) {
+  const lower = text.toLowerCase();
+  return BAD_WORDS.some(word => lower.includes(word));
+}
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
