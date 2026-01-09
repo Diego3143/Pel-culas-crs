@@ -77,7 +77,7 @@ export function WelcomeModal() {
              <Sparkles className="text-accent h-6 w-6" />
           </DialogTitle>
           <DialogDescription className="text-center text-muted-foreground pt-2">
-            En CinePlus, celebramos el contenido con un ciclo anual. Disfruta de los doramas y películas que publicaremos a lo largo del año.
+            En DramaWave, celebramos el contenido con un ciclo anual. Disfruta de los doramas y películas que publicaremos a lo largo del año.
           </DialogDescription>
         </DialogHeader>
         <div className="text-center text-foreground/80 my-4 px-2">

@@ -63,7 +63,7 @@ export function LoginForm() {
           <Logo />
         </div>
         <CardTitle>Welcome Back</CardTitle>
-        <CardDescription>Sign in to continue to CinePlus</CardDescription>
+        <CardDescription>Sign in to continue to DramaWave</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

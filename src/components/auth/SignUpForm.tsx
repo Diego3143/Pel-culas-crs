@@ -57,7 +57,7 @@ export function SignUpForm() {
 
       toast({
         title: 'Account Created',
-        description: 'Welcome to CinePlus!',
+        description: 'Welcome to DramaWave!',
       });
       router.push('/');
       router.refresh();
@@ -80,7 +80,7 @@ export function SignUpForm() {
           <Logo />
         </div>
         <CardTitle>Create an Account</CardTitle>
-        <CardDescription>Join CinePlus to start watching</CardDescription>
+        <CardDescription>Join DramaWave to start watching</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

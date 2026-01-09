@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut } from 'firebase/auth';
-import { LayoutGrid, LogOut, PlusCircle, User as UserIcon, Menu, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, LogOut, PlusCircle, User as UserIcon, Menu, ArrowLeft, Heart, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -20,13 +20,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from './Logo';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 export function Header() {
-  const { user, loading } = useAuth();
+  const { user, loading, unreadNotifications } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const isWatchPage = pathname.startsWith('/watch/');
+  const isHomePage = pathname === '/';
 
   const handleSignOut = async () => {
     await signOut(auth);
@@ -34,7 +35,7 @@ export function Header() {
   };
 
   const MobileNav = () => {
-    if (isWatchPage) {
+    if (!isHomePage) {
       return (
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-6 w-6" />
@@ -64,6 +65,9 @@ export function Header() {
               </SheetClose>
               <SheetClose asChild>
                 <Link href="/movies" className="text-foreground/80 hover:text-foreground">Movies</Link>
+              </SheetClose>
+               <SheetClose asChild>
+                <Link href="/notifications" className="text-foreground/80 hover:text-foreground">Novedades</Link>
               </SheetClose>
             </nav>
             <div className="mt-auto p-4 border-t">
@@ -121,8 +125,34 @@ export function Header() {
         <div className="flex flex-1 items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
             {loading ? (
-              <Skeleton className="h-8 w-8 rounded-full" />
-            ) : user ? (
+              <>
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </>
+            ) : (
+             <>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" asChild className="relative">
+                                <Link href="/notifications">
+                                    <Bell className="h-5 w-5"/>
+                                    {user && unreadNotifications > 0 && (
+                                        <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-red-100">
+                                            {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                                        </span>
+                                    )}
+                                    <span className="sr-only">Novedades</span>
+                                </Link>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Novedades</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
+              {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -140,8 +170,21 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                   <DropdownMenuItem asChild>
+                      <Link href="/profile">
+                        <UserIcon className="mr-2 h-4 w-4" />
+                        <span>Mi Perfil</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile/favorites">
+                        <Heart className="mr-2 h-4 w-4" />
+                        <span>Mis Favoritos</span>
+                      </Link>
+                    </DropdownMenuItem>
                   {user.isAdmin && (
                     <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link href="/admin">
                           <LayoutGrid className="mr-2 h-4 w-4" />
@@ -154,9 +197,9 @@ export function Header() {
                           <span>Upload Content</span>
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                     </>
                   )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
@@ -172,6 +215,8 @@ export function Header() {
                   <Link href="/signup">Sign Up</Link>
                 </Button>
               </div>
+            )}
+             </>
             )}
           </nav>
         </div>

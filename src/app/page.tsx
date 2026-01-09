@@ -13,36 +13,45 @@ export default function Home() {
 
   const {
     heroContent,
-    trendingContent,
-    inEmissionContent,
     newReleases,
+    inEmissionContent,
     popularContent,
   } = useMemo(() => {
     if (!allContent || allContent.length === 0) {
       return {
         heroContent: null,
-        trendingContent: [],
-        inEmissionContent: [],
         newReleases: [],
+        inEmissionContent: [],
         popularContent: [],
       };
     }
 
-    const inEmission = allContent.filter(c => c.inEmission);
-    // Exclude inEmission content from other carousels
-    const notInEmission = allContent.filter(c => !c.inEmission);
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-    const hero = inEmission.length > 0 ? inEmission[0] : notInEmission[0] || null;
+    // Filter content based on creation date or existence of createdAt field
+    const recentContent = allContent.filter(c => c.createdAt && c.createdAt > twentyFourHoursAgo);
+    const olderContent = allContent.filter(c => !c.createdAt || c.createdAt <= twentyFourHoursAgo);
+
+    const inEmission = allContent.filter(c => c.inEmission);
     
-    // Ensure the hero content is not repeated in the carousels
-    const remainingContent = allContent.filter(c => c.id !== hero?.id && !c.inEmission);
+    // Determine hero content
+    let hero = null;
+    if (inEmission.length > 0) {
+      hero = inEmission[0];
+    } else if (recentContent.length > 0) {
+      hero = recentContent[0];
+    } else {
+      hero = allContent[0] || null;
+    }
+    
+    // Ensure the hero content is not repeated in the carousels if possible
+    const remainingOlderContent = olderContent.filter(c => c.id !== hero?.id);
 
     return {
       heroContent: hero,
-      trendingContent: remainingContent.slice(0, 5),
+      newReleases: recentContent,
       inEmissionContent: inEmission,
-      newReleases: remainingContent.slice(5, 10),
-      popularContent: remainingContent.slice(10, 15),
+      popularContent: remainingOlderContent.slice(0, 15),
     };
   }, [allContent]);
 
@@ -72,8 +81,8 @@ export default function Home() {
       ) : (
          <div className="relative h-[50vh] min-h-[400px] w-full md:h-[calc(100vh-4rem)] md:min-h-[600px] flex items-center justify-center bg-background">
           <div className="text-center">
-            <h1 className="text-4xl font-extrabold tracking-tighter md:text-5xl lg:text-6xl">
-              Welcome to CinePlus
+            <h1 className="text-4xl font-extrabold tracking-tighter md:text-5xl lg:text-6xl font-headline">
+              Welcome to DramaWave
             </h1>
             <p className="text-base text-gray-300 md:text-lg mt-4">
               Content will appear here once it's added by an administrator.
@@ -82,11 +91,10 @@ export default function Home() {
         </div>
       )}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-        {trendingContent.length > 0 && <ContentCarousel title="Trending Now" content={trendingContent} />}
-        {inEmissionContent.length > 0 && <ContentCarousel title="En Emisión" content={inEmissionContent} />}
         {newReleases.length > 0 && <ContentCarousel title="New Releases" content={newReleases} />}
+        {inEmissionContent.length > 0 && <ContentCarousel title="Doramas" content={inEmissionContent} />}
+        {popularContent.length > 0 && <ContentCarousel title="Películas" content={popularContent} />}
         <RecommendedContent />
-        {popularContent.length > 0 && <ContentCarousel title="Popular on CinePlus" content={popularContent} />}
       </div>
     </div>
   );

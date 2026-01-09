@@ -41,15 +41,15 @@ export function StickerSheet({ onStickerSelect }: StickerSheetProps) {
     }, []);
 
   return (
-    <div>
-        <h3 className="text-lg font-medium text-center mb-4">Elige un Sticker</h3>
+    <div className="bg-popover border rounded-lg shadow-lg">
+        <h3 className="text-sm font-medium text-center p-2 border-b text-popover-foreground">Elige un Sticker</h3>
         <ScrollArea className="h-48">
             {loading ? (
                  <div className="grid grid-cols-4 gap-4 p-4">
                     {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-16" />)}
                  </div>
             ) : stickers.length > 0 ? (
-                <div className="grid grid-cols-4 gap-4 p-4">
+                <div className="grid grid-cols-4 gap-2 p-2">
                     {stickers.map(sticker => (
                         <button
                             key={sticker.id}

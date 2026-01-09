@@ -1,10 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ref, onValue, update } from 'firebase/database';
+import { ref, onValue, update, push, set, serverTimestamp } from 'firebase/database';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -52,6 +52,7 @@ export function EditForm({ contentId }: EditFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const initialContentRef = useRef<Content | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -72,17 +73,18 @@ export function EditForm({ contentId }: EditFormProps) {
     name: 'episodes',
   });
 
-  const numEpisodes = fields.length;
-
   useEffect(() => {
     const contentRef = ref(db, `content/${contentId}`);
     const unsubscribe = onValue(contentRef, (snapshot) => {
       if (snapshot.exists()) {
         const contentData = snapshot.val() as Content;
+        initialContentRef.current = contentData; // Store initial state
+        
         form.reset({
           ...contentData,
           genres: contentData.genres?.join(', ') || '',
         });
+
         if (contentData.type === 'series' && contentData.episodes) {
            const episodesArray = Array.isArray(contentData.episodes)
              ? contentData.episodes.filter(Boolean)
@@ -103,7 +105,6 @@ export function EditForm({ contentId }: EditFormProps) {
 
   const handleNumEpisodesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const count = parseInt(e.target.value, 10) || 0;
-    const currentValues = form.getValues('episodes') || [];
     
     if (count > fields.length) {
       const newEpisodes = [];
@@ -126,6 +127,19 @@ export function EditForm({ contentId }: EditFormProps) {
     }
   };
 
+  async function createNotificationForNewEpisode(contentInfo: z.infer<typeof formSchema>, newEpisode: Episode) {
+    const notificationRef = push(ref(db, 'notifications'));
+    const description = `¡Nuevo capítulo disponible! Ya puedes ver el capítulo ${newEpisode.episodeNumber}: ${newEpisode.title}.`;
+    await set(notificationRef, {
+      contentId: contentId,
+      title: contentInfo.title,
+      description: description,
+      imageUrl: contentInfo.imageUrl,
+      type: 'series',
+      createdAt: serverTimestamp(),
+    });
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
@@ -141,13 +155,13 @@ export function EditForm({ contentId }: EditFormProps) {
 
         if (values.type === 'movie') {
             contentData.videoUrl = values.videoUrl;
-            contentData.episodes = null; // Remove episodes if switching to movie
+            contentData.episodes = null;
         } else {
-            contentData.videoUrl = null; // Remove videoUrl if switching to series
+            contentData.videoUrl = null;
             if (values.episodes) {
               const episodeUpdates: { [key: string]: any } = {};
               values.episodes.forEach((episode, index) => {
-                const episodeId = (index + 1).toString(); // Use 1-based index for FB key
+                const episodeId = (index + 1).toString();
                 episodeUpdates[episodeId] = {
                   ...episode,
                   id: episodeId,
@@ -155,20 +169,36 @@ export function EditForm({ contentId }: EditFormProps) {
                 };
               });
               contentData.episodes = episodeUpdates;
+
+              // --- Notification Logic ---
+              const initialEpisodes = initialContentRef.current?.episodes ? 
+                (Array.isArray(initialContentRef.current.episodes) ? initialContentRef.current.episodes.filter(Boolean) : Object.values(initialContentRef.current.episodes))
+                : [];
+              
+              for (const updatedEpisode of values.episodes) {
+                 if (updatedEpisode.videoUrl) {
+                    const initialEpisode = initialEpisodes.find(ep => ep.episodeNumber === updatedEpisode.episodeNumber);
+                    // If episode is new or didn't have a URL before
+                    if (!initialEpisode || !initialEpisode.videoUrl) {
+                       await createNotificationForNewEpisode(values, updatedEpisode as Episode);
+                    }
+                 }
+              }
+              // --- End Notification Logic ---
             }
         }
         await update(contentRef, contentData);
 
         toast({
-            title: 'Content Updated',
-            description: `${values.title} has been successfully updated.`,
+            title: 'Contenido Actualizado',
+            description: `${values.title} ha sido actualizado correctamente.`,
         });
         router.push('/admin/content-list');
     } catch (error: any) {
         toast({
             variant: 'destructive',
-            title: 'Update Failed',
-            description: error.message || 'An unknown error occurred.',
+            title: 'Error al Actualizar',
+            description: error.message || 'Ha ocurrido un error desconocido.',
         });
     } finally {
         setIsLoading(false);
@@ -178,7 +208,7 @@ export function EditForm({ contentId }: EditFormProps) {
   if (isFetching) {
     return (
         <Card>
-            <CardHeader><CardTitle>Content Details</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Detalles del Contenido</CardTitle></CardHeader>
             <CardContent className="space-y-6">
                 <Skeleton className="h-10 w-1/2" />
                 <Skeleton className="h-10 w-full" />
@@ -192,7 +222,7 @@ export function EditForm({ contentId }: EditFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Content Details</CardTitle>
+        <CardTitle>Detalles del Contenido</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -203,8 +233,8 @@ export function EditForm({ contentId }: EditFormProps) {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl><Input placeholder="The Great Adventure" {...field} /></FormControl>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl><Input placeholder="La Gran Aventura" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -214,17 +244,17 @@ export function EditForm({ contentId }: EditFormProps) {
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Content Type</FormLabel>
+                    <FormLabel>Tipo de Contenido</FormLabel>
                     <Select onValueChange={(value) => {
                         field.onChange(value);
                         if (value === 'movie') {
                             replace([]);
                         }
                     }} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select content type" /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="movie">Movie</SelectItem>
-                        <SelectItem value="series">Series</SelectItem>
+                        <SelectItem value="movie">Película</SelectItem>
+                        <SelectItem value="series">Serie</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -237,8 +267,8 @@ export function EditForm({ contentId }: EditFormProps) {
                 name="genres"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Genres</FormLabel>
-                    <FormControl><Input placeholder="Sci-Fi, Adventure, Comedy" {...field} /></FormControl>
+                    <FormLabel>Géneros</FormLabel>
+                    <FormControl><Input placeholder="Ciencia Ficción, Aventura, Comedia" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -248,7 +278,7 @@ export function EditForm({ contentId }: EditFormProps) {
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Image URL</FormLabel>
+                  <FormLabel>URL de la Imagen</FormLabel>
                   <FormControl><Input placeholder="https://example.com/poster.jpg" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -259,8 +289,8 @@ export function EditForm({ contentId }: EditFormProps) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Textarea placeholder="A brief summary of the content..." {...field} /></FormControl>
+                  <FormLabel>Descripción</FormLabel>
+                  <FormControl><Textarea placeholder="Un breve resumen del contenido..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -295,7 +325,7 @@ export function EditForm({ contentId }: EditFormProps) {
                 name="videoUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Movie Video URL</FormLabel>
+                    <FormLabel>URL del Vídeo de la Película</FormLabel>
                     <FormControl><Input placeholder="https://example.com/movie.mp4" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -306,15 +336,15 @@ export function EditForm({ contentId }: EditFormProps) {
             {contentType === 'series' && (
               <div className="space-y-4">
                 <Separator />
-                <h3 className="text-lg font-medium">Series Episodes</h3>
+                <h3 className="text-lg font-medium">Episodios de la Serie</h3>
                 <FormItem>
-                    <FormLabel>Number of Episodes</FormLabel>
+                    <FormLabel>Número de Episodios</FormLabel>
                     <FormControl>
                       <Input 
                         type="number"
                         min="0"
                         placeholder="12"
-                        value={numEpisodes}
+                        value={fields.length}
                         onChange={handleNumEpisodesChange}
                       />
                     </FormControl>
@@ -327,8 +357,8 @@ export function EditForm({ contentId }: EditFormProps) {
                       name={`episodes.${index}.title`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Episode {index + 1} Title</FormLabel>
-                          <FormControl><Input placeholder={`Episode ${index + 1}`} {...field} /></FormControl>
+                          <FormLabel>Título del Episodio {index + 1}</FormLabel>
+                          <FormControl><Input placeholder={`Episodio ${index + 1}`} {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -338,8 +368,8 @@ export function EditForm({ contentId }: EditFormProps) {
                       name={`episodes.${index}.description`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Episode {index + 1} Description</FormLabel>
-                          <FormControl><Textarea placeholder="Episode summary..." {...field} /></FormControl>
+                          <FormLabel>Descripción del Episodio {index + 1}</FormLabel>
+                          <FormControl><Textarea placeholder="Resumen del episodio..." {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -349,7 +379,7 @@ export function EditForm({ contentId }: EditFormProps) {
                       name={`episodes.${index}.videoUrl`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Episode {index + 1} URL</FormLabel>
+                          <FormLabel>URL del Episodio {index + 1}</FormLabel>
                           <FormControl><Input placeholder="https://example.com/episode.mp4" {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -364,7 +394,7 @@ export function EditForm({ contentId }: EditFormProps) {
             
             <Button type="submit" className="w-full md:w-auto" disabled={isLoading || isFetching}>
               {(isLoading || isFetching) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? 'Updating...' : 'Update Content'}
+              {isLoading ? 'Actualizando...' : 'Actualizar Contenido'}
             </Button>
           </form>
         </Form>

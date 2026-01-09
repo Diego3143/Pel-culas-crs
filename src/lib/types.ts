@@ -3,6 +3,8 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   isAdmin: boolean;
+  seenNotifications?: { [notificationId: string]: boolean };
+  suspendedUntil?: number; // Timestamp until which the user is suspended
 }
 
 export interface Episode {
@@ -23,6 +25,9 @@ export interface Content {
   episodes?: Episode[]; // For series
   genres?: string[];
   inEmission?: boolean; // To mark content as currently airing
+  likes?: number;
+  likedBy?: { [key: string]: boolean };
+  createdAt: number; // Timestamp
 }
 
 export interface Comment {
@@ -33,4 +38,16 @@ export interface Comment {
   timestamp: number;
   type: 'text' | 'emoji' | 'image';
   content: string; // Will hold text, emoji character, or image URL
+  parentId?: string; // ID of the comment being replied to
+  replies?: Comment[]; // For client-side nesting
+}
+
+export interface Notification {
+    id: string;
+    contentId: string;
+    title: string;
+    description: string;
+    imageUrl: string;
+    createdAt: number;
+    type: 'movie' | 'series';
 }

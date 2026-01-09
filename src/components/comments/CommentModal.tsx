@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { ref, push, set, serverTimestamp } from 'firebase/database';
-import type { UserProfile } from '@/lib/types';
+import type { UserProfile, Comment as CommentType } from '@/lib/types';
 import { Loader2, Smile } from 'lucide-react';
 import { StickerSheet } from './StickerSheet';
 
@@ -24,9 +24,10 @@ interface CommentModalProps {
   onClose: () => void;
   contentId: string;
   user: UserProfile;
+  replyTo?: CommentType | null;
 }
 
-export function CommentModal({ isOpen, onClose, contentId, user }: CommentModalProps) {
+export function CommentModal({ isOpen, onClose, contentId, user, replyTo }: CommentModalProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStickerSheetOpen, setIsStickerSheetOpen] = useState(false);
@@ -44,17 +45,22 @@ export function CommentModal({ isOpen, onClose, contentId, user }: CommentModalP
       const commentsRef = ref(db, `comments/${contentId}`);
       const newCommentRef = push(commentsRef);
 
-      // Determine correct type for DB
       const dbType = type === 'image' ? 'image' : (type === 'sticker' ? 'emoji' : 'text');
-
-      await set(newCommentRef, {
+      
+      const commentData: any = {
         authorId: user.uid,
         authorName: user.displayName,
         authorAvatar: `https://avatar.vercel.sh/${user.email}.png`,
         type: dbType,
         content,
         timestamp: serverTimestamp(),
-      });
+      };
+      
+      if (replyTo) {
+          commentData.parentId = replyTo.id;
+      }
+
+      await set(newCommentRef, commentData);
       
       toast({ title: 'Comentario publicado', description: 'Tu comentario se ha añadido.' });
       form.reset();
@@ -83,14 +89,21 @@ export function CommentModal({ isOpen, onClose, contentId, user }: CommentModalP
       if (!open) {
         onClose();
         setIsStickerSheetOpen(false);
+        form.reset();
       }
     }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Añadir un comentario</DialogTitle>
-          <DialogDescription>
-            Comparte tu opinión con la comunidad.
-          </DialogDescription>
+          <DialogTitle>{replyTo ? `Respondiendo a ${replyTo.authorName}` : 'Añadir un comentario'}</DialogTitle>
+           {replyTo ? (
+            <DialogDescription className="text-left text-xs text-muted-foreground p-2 border rounded-md line-clamp-2">
+                "{replyTo.content}"
+            </DialogDescription>
+           ) : (
+             <DialogDescription>
+                Comparte tu opinión con la comunidad.
+             </DialogDescription>
+           )}
         </DialogHeader>
         
         {isStickerSheetOpen ? (

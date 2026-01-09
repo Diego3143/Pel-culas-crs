@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { push, ref, set } from 'firebase/database';
+import { push, ref, set, serverTimestamp } from 'firebase/database';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -80,6 +80,18 @@ export function UploadForm() {
     }
   };
 
+  async function createNotification(contentId: string, values: z.infer<typeof formSchema>) {
+    const notificationRef = push(ref(db, 'notifications'));
+    await set(notificationRef, {
+      contentId: contentId,
+      title: values.title,
+      description: values.description,
+      imageUrl: values.imageUrl,
+      type: values.type,
+      createdAt: serverTimestamp(),
+    });
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
@@ -93,6 +105,7 @@ export function UploadForm() {
             imageUrl: values.imageUrl,
             genres: values.genres.split(',').map(g => g.trim()),
             inEmission: values.inEmission,
+            createdAt: serverTimestamp(),
             ...(values.type === 'movie' && { videoUrl: values.videoUrl }),
         };
 
@@ -112,9 +125,14 @@ export function UploadForm() {
             await set(episodesRef, episodeUpdates);
         }
 
+        // Create notification after successful upload
+        if (newContentRef.key) {
+          await createNotification(newContentRef.key, values);
+        }
+
       toast({
         title: 'Content Uploaded',
-        description: `${values.title} has been added to the library.`,
+        description: `${values.title} has been added and a notification was sent.`,
       });
       router.push('/admin');
     } catch (error: any) {

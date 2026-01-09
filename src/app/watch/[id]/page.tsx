@@ -1,11 +1,11 @@
 'use client';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, runTransaction } from 'firebase/database';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 
-import type { Content, Episode, Comment } from '@/lib/types';
+import type { Content, Episode, UserProfile, Comment as CommentType } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -14,11 +14,12 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Pencil, Lock, Share2, Download, MessageSquare } from 'lucide-react';
+import { Pencil, Lock, Share2, Download, MessageSquare, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { CommentModal } from '@/components/comments/CommentModal';
+import { VideoPlayer } from '@/components/content/VideoPlayer';
 
 export default function WatchPage() {
   const params = useParams();
@@ -30,6 +31,7 @@ export default function WatchPage() {
   const [loading, setLoading] = useState(true);
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<CommentType | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -71,6 +73,55 @@ export default function WatchPage() {
     });
   };
 
+  const handleLike = async () => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Debes iniciar sesión para dar "Me gusta"' });
+      return;
+    }
+    if (!id) return;
+
+    const contentRef = ref(db, `content/${id}`);
+
+    await runTransaction(contentRef, (currentContent) => {
+      if (currentContent) {
+        if (currentContent.likedBy && currentContent.likedBy[user.uid]) {
+          // Unlike
+          currentContent.likes = (currentContent.likes || 0) - 1;
+          delete currentContent.likedBy[user.uid];
+        } else {
+          // Like
+          currentContent.likes = (currentContent.likes || 0) + 1;
+          if (!currentContent.likedBy) {
+            currentContent.likedBy = {};
+          }
+          currentContent.likedBy[user.uid] = true;
+        }
+      }
+      return currentContent;
+    });
+  };
+
+  const hasLiked = user && content?.likedBy?.[user.uid] === true;
+  
+  const openCommentModal = (commentToReply?: CommentType) => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Debes iniciar sesión para comentar' });
+      return;
+    }
+    if (commentToReply) {
+      setReplyTo(commentToReply);
+    } else {
+      setReplyTo(null);
+    }
+    setIsCommentModalOpen(true);
+  };
+  
+  const closeCommentModal = () => {
+    setIsCommentModalOpen(false);
+    setReplyTo(null);
+  };
+
+
   if (loading) {
     return (
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -99,11 +150,14 @@ export default function WatchPage() {
   return (
     <>
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative mb-8">
+      <div className="w-full mb-8">
         {currentVideoUrl ? (
-          <video src={currentVideoUrl} controls autoPlay className="w-full h-full object-contain" key={currentVideoUrl}/>
+          <VideoPlayer
+            src={currentVideoUrl}
+            poster={content.imageUrl}
+          />
         ) : (
-          <>
+          <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative">
             <Image
               src={content.imageUrl}
               alt="Video player placeholder"
@@ -116,7 +170,7 @@ export default function WatchPage() {
                 {content.type === 'series' ? (selectedEpisode ? 'Episode not yet available' : 'Select an episode to watch') : 'Video not available'}
               </h2>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -135,21 +189,47 @@ export default function WatchPage() {
               </Button>
             )}
           </div>
-          <div className="flex gap-2 my-4">
-            {content.genres?.map(genre => (
-              <span key={genre} className="text-xs font-semibold px-2 py-1 bg-muted rounded-full text-muted-foreground">{genre}</span>
-            ))}
+          <div className="flex items-center gap-4 my-4">
+            <div className="flex gap-2">
+              {content.genres?.map(genre => (
+                <span key={genre} className="text-xs font-semibold px-2 py-1 bg-muted rounded-full text-muted-foreground">{genre}</span>
+              ))}
+            </div>
+             {content.likes !== undefined && content.likes > 0 && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Heart className="h-4 w-4 text-red-500" fill="currentColor" />
+                    <span>{content.likes}</span>
+                </div>
+            )}
           </div>
           <p className="text-muted-foreground mb-6">{selectedEpisode?.description || content.description}</p>
           
           <Separator className="my-6" />
 
           <div className="flex flex-wrap items-center gap-4">
-            <Button onClick={handleShare} variant="outline">
-                <Share2 className="mr-2 h-4 w-4" />
-                Compartir
-            </Button>
             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant="outline" onClick={handleLike}>
+                            <Heart className={cn("mr-2 h-4 w-4", hasLiked && "fill-red-500 text-red-500")} />
+                            {hasLiked ? 'Me gusta' : 'Me gusta'}
+                        </Button>
+                    </TooltipTrigger>
+                     <TooltipContent>
+                        <p>{hasLiked ? 'Quitar Me gusta' : 'Me gusta'}</p>
+                    </TooltipContent>
+                </Tooltip>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button onClick={handleShare} variant="outline">
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Compartir
+                        </Button>
+                    </TooltipTrigger>
+                     <TooltipContent>
+                        <p>Compartir enlace</p>
+                    </TooltipContent>
+                </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="outline" disabled>
@@ -163,7 +243,7 @@ export default function WatchPage() {
                 </Tooltip>
                  <Tooltip>
                     <TooltipTrigger asChild>
-                       <Button variant="outline" onClick={() => user ? setIsCommentModalOpen(true) : toast({ variant: 'destructive', title: 'Debes iniciar sesión para comentar' })}>
+                       <Button variant="outline" onClick={() => openCommentModal()}>
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Comentarios
                         </Button>
@@ -176,14 +256,14 @@ export default function WatchPage() {
           </div>
         </div>
 
-        <div className="lg:row-start-1 lg:col-start-3">
+        <div className="lg:col-span-1">
             {content.type === 'series' && content.episodes && (
             <Card>
                 <CardHeader>
                 <CardTitle>Episodes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                <ScrollArea className="h-96">
+                <ScrollArea className="h-[450px]">
                     <div className="space-y-4">
                     {content.episodes.map((episode, index) => {
                         const isAvailable = !!episode.videoUrl;
@@ -218,16 +298,17 @@ export default function WatchPage() {
         </div>
       </div>
       <Separator className="my-6" />
-      <div className="max-w-4xl">
-        <CommentSection contentId={id} />
-      </div>
+       <div className="lg:col-span-2 mt-8">
+        <CommentSection contentId={id} onReply={openCommentModal} />
+       </div>
     </div>
      {user && (
         <CommentModal
           isOpen={isCommentModalOpen}
-          onClose={() => setIsCommentModalOpen(false)}
+          onClose={closeCommentModal}
           contentId={id}
           user={user}
+          replyTo={replyTo}
         />
       )}
     </>

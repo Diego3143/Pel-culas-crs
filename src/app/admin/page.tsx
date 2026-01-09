@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { List, PlusCircle, Smile } from 'lucide-react';
+import { List, PlusCircle, Smile, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboardPage() {
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+      <h1 className="text-4xl font-headline font-bold mb-8">Admin Dashboard</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
@@ -32,6 +32,20 @@ export default function AdminDashboardPage() {
               <Link href="/admin/content-list">
                 <List className="mr-2 h-4 w-4" />
                 View Content
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>User Management</CardTitle>
+            <CardDescription>Manage user roles and suspensions.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/users">
+                <Users className="mr-2 h-4 w-4" />
+                Manage Users
               </Link>
             </Button>
           </CardContent>

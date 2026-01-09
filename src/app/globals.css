@@ -50,3 +50,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom styles for video.js */
+.video-js {
+  @apply font-body;
+}
+
+.vjs-control-bar {
+    @apply bg-black/50;
+}
+
+.vjs-big-play-button {
+    @apply bg-accent/70 border-none rounded-full h-16 w-16 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
+}
+
+.video-js .vjs-big-play-button .vjs-icon-placeholder:before {
+    @apply text-4xl;
+}
+
+.vjs-slider-bar,
+.vjs-volume-level,
+.vjs-play-progress {
+  @apply bg-accent;
+}
+
+.vjs-loading-spinner {
+  border-color: hsl(var(--accent));
+}
