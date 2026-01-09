@@ -33,6 +33,24 @@ const nextConfig: NextConfig = {
         hostname: 'imgs.search.brave.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lumiere-a.akamaihd.net',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.themoviedb.org',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
